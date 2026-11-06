@@ -25,9 +25,10 @@ function assert(condition, message) {
   if (!condition) throw new Error(message);
 }
 
-async function open(path, body, { viewport = { width: 1280, height: 720 }, reduced = false, permissions } = {}) {
+async function open(path, body, { viewport = { width: 1280, height: 720 }, reduced = false, permissions, clock = false } = {}) {
   const context = await browser.newContext({ viewport, reducedMotion: reduced ? "reduce" : "no-preference", permissions });
   const page = await context.newPage();
+  if (clock) await page.clock.install();
   const problems = [];
   page.on("console", (m) => {
     if (m.type() === "error" || m.type() === "warning") problems.push(`${m.type()}: ${m.text()}`);
@@ -176,6 +177,34 @@ await test("overlay: freshness != online shows STALE", async () => {
   assert((await canvas(page).getAttribute("data-mode")) === "frozen", "mode");
   await close();
 });
+
+for (const [path, width, height] of [["", 390, 844], ["overlay/", 1280, 720]]) {
+  await test(`${path || "desk"}: older cached responses expire retained telemetry and freeze motion`, async () => {
+    const now = Date.now();
+    let polls = 0;
+    const { page, problems, close } = await open(path, () => statusBody({
+      now: polls++ === 0 ? now : now - 1000,
+      ageSeconds: 0, staleAfterSeconds: 2, core: "ACTIVE", rpmMilli: 72000, speed: 690,
+    }), { viewport: { width, height } });
+    try {
+      await waitMode(page, "active");
+      await page.waitForTimeout(5500);
+      assert(polls >= 3, `polls ${polls}`);
+      assert((await page.locator("[data-link]").first().getAttribute("data-link")) === "stale", "retained data expired");
+      assert((await page.locator(".chip-stale").innerText()) === "STALE", "stale chip visible");
+      assert((await text(page, "rpm")) === "72.0", "RPM frozen");
+      assert((await text(page, "km")) === "6.349", "distance frozen");
+      assert((await text(page, "round")) === "367", "round frozen");
+      assert((await text(page, "block")) === "1,140", "block frozen");
+      assert((await page.locator(".live-age, .hud-age").innerText()).startsWith("Frozen, last update"), "age reflects retained data");
+      assert((await canvas(page).getAttribute("data-mode")) === "frozen", "stage frozen");
+      const before = await pixels(page);
+      await page.waitForTimeout(350);
+      assert(before === await pixels(page), "no continuing canvas animation");
+      assert(problems.length === 0, problems.join("; "));
+    } finally { await close(); }
+  });
+}
 
 await test("overlay: network failure before any data shows OFFLINE and no numbers", async () => {
   const { page, close } = await open("overlay/", { fail: true });
@@ -386,6 +415,77 @@ await test("desk: a heat without a live signal is practice and saves nothing", a
   await page.getByRole("button", { name: "Start race" }).click();
   assert((await page.locator(".lane-track").nth(0).getAttribute("data-position")) === "0.000", "wheel lane stays at 0");
   await close();
+});
+
+await test("desk: ready instructions explain starting before using Run or Space", async () => {
+  const { page, close } = await open("", idle, { viewport: { width: 390, height: 844 } });
+  try {
+    await waitMode(page, "idle");
+    const hint = await page.locator(".race-hint").innerText();
+    assert(/Start race.*then.*Run.*Space/.test(hint), hint);
+    await page.getByRole("button", { name: "Start race" }).focus();
+    await page.keyboard.press("Space");
+    assert((await page.locator(".race").getAttribute("data-phase")) === "running", "focused Space starts heat");
+    await page.waitForTimeout(350);
+    await page.keyboard.press("Space");
+    assert(!(await page.locator(".race-hint").innerText()).includes("Stumbled"), "focused Run receives one stride per Space");
+  } finally { await close(); }
+});
+
+await test("desk: Space toggles every OBS module and copies its URL during a heat", async () => {
+  const { page, close } = await open("", idle, {
+    viewport: { width: 390, height: 844 },
+    permissions: engine === chromium ? ["clipboard-read", "clipboard-write"] : undefined,
+  });
+  try {
+    await waitMode(page, "idle");
+    await page.getByRole("button", { name: "Start race" }).click();
+    for (const [label, key] of [["Show the hamster stage", "stage"], ["Show the HUD", "hud"], ["Show the ticker", "ticker"]]) {
+      const checkbox = page.getByLabel(label);
+      await checkbox.focus();
+      await page.keyboard.press("Space");
+      assert(!await checkbox.isChecked(), `${label} toggles off`);
+      assert((await page.getByTestId("overlay-url").innerText()).includes(`${key}=0`), `${key} updates URL`);
+      await page.keyboard.press("Space");
+      assert(await checkbox.isChecked(), `${label} toggles back on`);
+      assert(!(await page.locator(".race-hint").innerText()).includes("Stumbled"), "checkbox keys are not race strides");
+    }
+    await page.getByRole("button", { name: "Copy URL" }).focus();
+    await page.keyboard.press("Space");
+    await page.locator(".obs-copied").filter({ hasText: /Copied|Unable/ }).waitFor();
+    if (engine === chromium) assert((await page.evaluate(() => navigator.clipboard.readText())).endsWith("?hud=1&stage=1&ticker=1"), "Space activates Copy URL");
+    assert((await page.locator(".race").getAttribute("data-phase")) === "running", "heat continues while setup controls work");
+  } finally { await close(); }
+});
+
+await test("desk: a suspended heat expires on the first resumed frame and can restart", async () => {
+  const { page, close } = await open("", idle, { viewport: { width: 390, height: 844 }, clock: true });
+  try {
+    await waitMode(page, "idle");
+    await page.getByRole("button", { name: "Start race" }).click();
+    await page.clock.fastForward(65000);
+    assert((await page.locator(".race").getAttribute("data-phase")) === "done", "heat expired after suspension");
+    assert((await page.locator(".race-clock").innerText()) === "0.0 s left", "deadline reached");
+    assert((await page.locator(".race-hint").innerText()).startsWith("Time."), "time outcome");
+    await page.clock.runFor(1000);
+    await page.getByRole("button", { name: "Race again" }).click();
+    assert((await page.locator(".race").getAttribute("data-phase")) === "running", "new heat has a new deadline");
+    assert(parseFloat(await page.locator(".race-clock").innerText()) > 59, "new heat starts with sixty seconds");
+  } finally { await close(); }
+});
+
+await test("desk: a shorter frame gap counts in full without teleporting the ghost", async () => {
+  const { page, close } = await open("", idle, { clock: true });
+  try {
+    await waitMode(page, "idle");
+    await page.getByRole("button", { name: "Start race" }).click();
+    await page.clock.fastForward(20000);
+    const left = parseFloat(await page.locator(".race-clock").innerText());
+    assert(left >= 39 && left <= 40.1, `time remaining ${left}`);
+    assert((await page.locator(".race").getAttribute("data-phase")) === "running", "heat still running");
+    const position = Number(await page.locator(".lane-track").nth(1).getAttribute("data-position"));
+    assert(position < 0.01, `bounded ghost motion ${position}`);
+  } finally { await close(); }
 });
 
 await test("desk: OBS panel builds, opens and copies the overlay URL", async () => {

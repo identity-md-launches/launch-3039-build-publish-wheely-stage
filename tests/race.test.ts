@@ -40,6 +40,21 @@ describe("ghost race", () => {
     expect(h.ghostM).toBe(0);
     expect(score(h)).toBe(0);
   });
+  it("counts a long frame gap in full while capping ghost motion", () => {
+    const h = advance({ ...newHeat(true), speed: TOP_SPEED }, 20, 3, true);
+    expect(h.t).toBe(20);
+    expect(h.outcome).toBeNull();
+    expect(h.ghostM).toBeGreaterThan(0);
+    expect(h.ghostM).toBeLessThanOrEqual(TOP_SPEED * 0.1);
+    expect(h.wheelM).toBe(3);
+  });
+  it("expires after suspension without awarding a late finish or time bonus", () => {
+    const h = advance({ ...newHeat(true), ghostM: LAP_M - 0.01, speed: TOP_SPEED }, 65, LAP_M, true);
+    expect(h.t).toBe(HEAT_S);
+    expect(h.outcome).toBe("time");
+    expect(score(h)).toBe(300);
+    expect(advance(h, 1, LAP_M, true)).toBe(h);
+  });
   it("adds time left to the score only for a ghost win", () => {
     const win = run(newHeat(true), HEAT_S);
     expect(score(win)).toBeGreaterThan(300);

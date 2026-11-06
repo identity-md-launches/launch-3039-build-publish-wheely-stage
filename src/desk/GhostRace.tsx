@@ -89,6 +89,8 @@ export function GhostRace({ live }: { live: LiveState }) {
   const running = heat !== null && heat.outcome === null;
 
   const heatRef = useRef<Heat | null>(null);
+  const deadlineRef = useRef(0);
+  const actionRef = useRef<HTMLButtonElement>(null);
   const trackerRef = useRef<WheelTracker>(startTracker(null, null));
   const liveRef = useRef(isLive);
   liveRef.current = isLive;
@@ -100,7 +102,8 @@ export function GhostRace({ live }: { live: LiveState }) {
 
   // Only real readings move the wheel lane.
   useEffect(() => {
-    if (!running || !reading) return;
+    // A reading received after the deadline cannot establish distance inside this heat.
+    if (!running || !reading || performance.now() >= deadlineRef.current) return;
     trackerRef.current = trackWheel(trackerRef.current, reading.counterEpoch, reading.distanceMm);
   }, [running, reading]);
 
@@ -108,12 +111,11 @@ export function GhostRace({ live }: { live: LiveState }) {
   useEffect(() => {
     if (!running) return;
     let raf = 0;
-    let last = performance.now();
     const frame = (now: number) => {
       const current = heatRef.current;
       if (!current || current.outcome) return;
-      const dt = Math.min(0.1, (now - last) / 1000);
-      last = now;
+      const elapsed = HEAT_S - (deadlineRef.current - now) / 1000;
+      const dt = Math.max(0, elapsed - current.t);
       const wheelM = clampToNumber(trackerRef.current.travelled, Number.MAX_SAFE_INTEGER) / 1000;
       commit(advance(current, dt, wheelM, liveRef.current));
       raf = requestAnimationFrame(frame);
@@ -140,6 +142,7 @@ export function GhostRace({ live }: { live: LiveState }) {
   }, [finished]);
 
   const start = () => {
+    deadlineRef.current = performance.now() + HEAT_S * 1000;
     trackerRef.current = startTracker(reading?.counterEpoch ?? null, reading?.distanceMm ?? null);
     setNewBest(false);
     commit(stride(newHeat(isLive)));
@@ -150,16 +153,23 @@ export function GhostRace({ live }: { live: LiveState }) {
     if (current && !current.outcome) commit(stride(current));
   }, [commit]);
 
-  // Space works anywhere on the page during a heat. A held key does not repeat strides.
+  // Space drives the race from the document or its action. Other controls keep native keys.
   useEffect(() => {
     if (!running) return;
+    const ownsSpace = (event: KeyboardEvent) => {
+      if (event.code !== "Space" || event.defaultPrevented) return false;
+      const target = event.target;
+      if (!(target instanceof Element)) return true;
+      const control = target.closest('input, textarea, select, a[href], button, [contenteditable]:not([contenteditable="false"])');
+      return control === null || control === actionRef.current;
+    };
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.code !== "Space") return;
+      if (!ownsSpace(event)) return;
       event.preventDefault();
       if (!event.repeat) tap();
     };
     const onKeyUp = (event: KeyboardEvent) => {
-      if (event.code === "Space") event.preventDefault();
+      if (ownsSpace(event)) event.preventDefault();
     };
     window.addEventListener("keydown", onKeyDown);
     window.addEventListener("keyup", onKeyUp);
@@ -193,7 +203,7 @@ export function GhostRace({ live }: { live: LiveState }) {
   else if (stumbling) hint = "Stumbled. Slow your taps and wait for your ghost to recover.";
   else if (running) hint = "Keep a steady rhythm of about three taps a second.";
   else if (!isLive) hint = "The wheel signal is down, so a heat now is practice and will not count toward your best.";
-  else hint = "Beat the real wheel over 30 m. Tap Run or press Space about three times a second, because mashing makes your ghost stumble.";
+  else hint = "Choose Start race, then tap Run or press Space about three times a second to reach 30 m. Mashing makes your ghost stumble.";
 
   const label = running ? "Run" : finished ? "Race again" : "Start race";
   const clock = running || finished ? `${Math.max(0, HEAT_S - (heat?.t ?? 0)).toFixed(1)} s left` : `${HEAT_S} s heat`;
@@ -211,6 +221,7 @@ export function GhostRace({ live }: { live: LiveState }) {
       </div>
 
       <button
+        ref={actionRef}
         type="button"
         className={`action${stumbling ? " action-stumble" : ""}`}
         aria-disabled={locked || undefined}

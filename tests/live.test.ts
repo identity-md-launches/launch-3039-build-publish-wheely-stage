@@ -3,17 +3,19 @@ import { CAPTION_COUNT, captionFor } from "../src/lib/captions";
 import { applyFailure, applyStatus, initialLiveState, roundDistanceMm, type LiveState } from "../src/lib/live";
 import { parseStatus } from "../src/lib/status";
 import { tickerLines } from "../src/lib/ticker";
+import { stageInputFrom } from "../src/stage/StageCanvas";
+import { sparksPerSecond, speedLineCount, wheelDegreesPerSecond } from "../src/stage/scene";
 
 const T0 = Date.parse("2026-11-06T09:00:00.000Z");
 
-function body(o: { now?: number; age?: number; freshness?: string; rpm?: number | string; round?: string; noAnchor?: boolean; core?: string } = {}) {
+function body(o: { now?: number; age?: number; staleAfter?: number; freshness?: string; rpm?: number | string; round?: string; noAnchor?: boolean; core?: string } = {}) {
   const now = o.now ?? T0;
   return parseStatus({
     generatedAt: new Date(now).toISOString(),
     measurement: {
       freshness: o.freshness ?? "online",
       observedAt: new Date(now - (o.age ?? 1) * 1000).toISOString(),
-      staleAfterSeconds: 120,
+      staleAfterSeconds: o.staleAfter ?? 120,
       coreStatus: o.core ?? "ACTIVE",
       rpmMilli: o.rpm ?? 60000,
       speedMmPerSecond: 500,
@@ -54,9 +56,55 @@ describe("freshness", () => {
     expect(first.link).toBe("live");
     expect(applyStatus(first, body({ now: T0, age: 5 }), T0 + 200_000).link).toBe("stale");
   });
-  it("ignores an older answer that arrives out of order", () => {
+  it("ignores older values while advancing the retained reading's age", () => {
     const newer = applyStatus(initialLiveState, body({ now: T0 + 5000, rpm: 70000 }), T0 + 5000);
-    expect(applyStatus(newer, body({ now: T0, rpm: 10000 }), T0 + 5100)).toBe(newer);
+    const retained = applyStatus(newer, body({ now: T0, rpm: 10000, round: "99" }), T0 + 5100);
+    expect(retained.link).toBe("live");
+    expect(retained.reading).toBe(newer.reading);
+    expect(retained.anchor).toBe(newer.anchor);
+    expect(retained.celebration).toBe(newer.celebration);
+    expect(retained.serverClock).toBe(newer.serverClock);
+    expect(retained.ageSeconds).toBe(1.1);
+  });
+  it("expires retained data through older cache replies and stops stage motion", () => {
+    const localStart = T0 + 6 * 3_600_000;
+    const first = applyStatus(initialLiveState, body({ age: 0, staleAfter: 2, rpm: 72000 }), localStart);
+    const old = body({ now: T0 - 1000, age: 0, staleAfter: 999, rpm: 99000, round: "99" });
+    let state = applyStatus(first, old, localStart + 2000);
+    expect(state.link).toBe("live");
+    expect(state.ageSeconds).toBe(2);
+    for (const elapsed of [2001, 3500, 5250]) {
+      state = applyStatus(state, old, localStart + elapsed);
+      expect(state.link).toBe("stale");
+      expect(state.ageSeconds).toBe(elapsed / 1000);
+      expect(state.staleAfterSeconds).toBe(2);
+      expect(state.reading).toBe(first.reading);
+      expect(state.anchor).toBe(first.anchor);
+      expect(state.celebration).toBeNull();
+      expect(state.serverClock).toBe(first.serverClock);
+    }
+    const input = stageInputFrom(state);
+    expect(input.mode).toBe("frozen");
+    expect(speedLineCount(input)).toBe(0);
+    expect(sparksPerSecond(input)).toBe(0);
+    expect(wheelDegreesPerSecond(input)).toBe(0);
+  });
+  it("does not restore live status from an older response after failure", () => {
+    const first = applyStatus(initialLiveState, body({ age: 0, staleAfter: 2 }), T0);
+    const offline = applyFailure(first, T0 + 1000);
+    const retained = applyStatus(offline, body({ now: T0 - 1000 }), T0 + 5250);
+    expect(retained.link).toBe("offline");
+    expect(retained.ageSeconds).toBe(5.25);
+    expect(retained.reading).toBe(first.reading);
+  });
+  it("recovers from older cached replies when a fresh newer reading arrives", () => {
+    const first = applyStatus(initialLiveState, body({ age: 0, staleAfter: 2 }), T0);
+    const stale = applyStatus(first, body({ now: T0 - 1000 }), T0 + 5250);
+    const recovered = applyStatus(stale, body({ now: T0 + 6000, age: 0, rpm: 50000, round: "11" }), T0 + 6000);
+    expect(recovered.link).toBe("live");
+    expect(recovered.ageSeconds).toBe(0);
+    expect(recovered.reading?.rpmMilli).toBe(50000n);
+    expect(recovered.celebration?.id).toBe(1);
   });
 });
 

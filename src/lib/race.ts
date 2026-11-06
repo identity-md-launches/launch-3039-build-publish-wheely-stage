@@ -50,11 +50,14 @@ export function stride(heat: Heat): Heat {
 
 export function advance(heat: Heat, dt: number, wheelM: number, live: boolean): Heat {
   if (heat.outcome) return heat;
-  const t = heat.t + dt;
-  const speed = heat.speed * Math.exp(-DRAG * dt);
-  const ghostM = heat.ghostM + ((heat.speed + speed) / 2) * dt;
+  const t = heat.t + Math.max(0, dt);
+  // Elapsed time includes suspended frames. Only motion is capped, so a resumed frame cannot
+  // teleport the ghost or extend the heat beyond its deadline.
+  const motionDt = Math.min(0.1, Math.max(0, dt), Math.max(0, HEAT_S - heat.t));
+  const speed = heat.speed * Math.exp(-DRAG * motionDt);
+  const ghostM = heat.ghostM + ((heat.speed + speed) / 2) * motionDt;
   const outcome: Outcome | null =
-    ghostM >= LAP_M && ghostM >= wheelM ? "ghost" : wheelM >= LAP_M ? "wheel" : t >= HEAT_S ? "time" : null;
+    t >= HEAT_S ? "time" : ghostM >= LAP_M && ghostM >= wheelM ? "ghost" : wheelM >= LAP_M ? "wheel" : null;
   return {
     ...heat,
     t: Math.min(t, HEAT_S),

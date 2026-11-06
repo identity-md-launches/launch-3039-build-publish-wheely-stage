@@ -42,13 +42,14 @@ Rules the code keeps:
 - **Bigint-safe:** counters stay `bigint` from parsing through formatting. Drawing uses a clamped number, and the text never does.
 - **Never invented:** a failed request, a non-2xx answer or a malformed body shows Offline. With no reading yet, the fields show `--` and the curtains stay closed.
 - **Partial answers:** the API sometimes leaves out `builder.anchor`. The feed stays live and the last settled round is kept.
-- **Age:** measured against the server's `generatedAt`, so a wrong clock on the viewer's PC cannot fake or hide staleness. A cache repeating one `generatedAt` still ages out.
+- **Age:** measured against the server's `generatedAt`, so a wrong clock on the viewer's PC cannot fake or hide staleness. Repeated or older cached responses still age out the retained reading without rolling its numbers back.
 
 ### Ghost Race
 
 Your ghost races the live wheel over 30 m, with a 60-second limit.
 
-- Tap **Run** or press **Space**. About three taps a second holds top speed (1.4 m/s). Tapping faster than about nine a second makes the ghost stumble.
+- Choose **Start race**, then tap **Run** or press **Space**. About three taps a second holds top speed (1.4 m/s). Tapping faster than about nine a second makes the ghost stumble. Space keeps its normal behavior when another control, such as an OBS checkbox, has focus.
+- Leaving the tab does not pause the heat. An expired heat ends on the first resumed frame; wheel updates received after the deadline do not count toward it.
 - The wheel lane moves only when the API reports new distance, and nothing is interpolated. In samples taken while the wheel was idle, readings changed about once a minute, so the lane moves in steps.
 - Before a heat, the lane shows distance since the last settled round: unsettled work units (`cumulativeWorkUnits - anchor.cumulativeWork`) times the wheel's own distance per unit (`distanceMm / cumulativeWorkUnits`).
 - Score: 10 points per metre, plus 10 per second left on the clock if your ghost reached the line first.
@@ -79,20 +80,25 @@ API_LIVE=1 npm run test:e2e # also reads the real API once
 
 ## Validation results
 
-Run against the final source on 2026-11-06. Full record, including the Better Interface review: [VALIDATION.md](VALIDATION.md).
+Revision checked on 2026-11-06. All four reported defects were reproduced with component/state tests and fixed. Full evidence, current browser limitations and the earlier build's historical review: [VALIDATION.md](VALIDATION.md).
 
 | Command | Result |
 | --- | --- |
-| `npm run build` (includes `tsc --noEmit`) | Passed |
-| `npm test` | 42 of 42 passed |
-| `API_LIVE=1 npm run test:e2e` (Chromium) | 29 of 29 passed |
-| `taste.mjs` design probe, online and `--offline` | 16 of 16 passed, both |
+| `npm run typecheck` | Passed |
+| `npm run build` | Passed; rebuilt `dist/` included |
+| `npm test` | 47 of 47 passed |
+| Scratch React/jsdom component checks | 14 of 14 passed; four original reproductions failed before the fixes |
+| `node --check tests/e2e/run.mjs` | Passed; six browser regressions added |
+| E2E suite and `taste.mjs` design probe | Attempted, unable to launch Chromium; no current rendered pass claimed |
+
+Build and unit commands ran in an identical scratch copy installed with the unchanged lockfile, to keep dependency directories out of the deliverable. The scratch-only DOM harness did not add a production or project dependency.
 
 Known limitations:
 
-- **ACTIVE on the real wheel was not observed.** The wheel stayed IDLE in every real sample, so ACTIVE, the celebrate flash and the moving wheel lane were checked against a mocked API using the live response's field names.
-- **WebKit did not run.** This machine lacks WebKit's system libraries, so Safari behaviour is unverified.
-- **OBS itself was not run.** Transparency was checked by screenshotting with no background in headless Chromium, which uses a similar engine but is not OBS.
+- **Current browser verification is incomplete.** The browser tool failed with a socket-path-length error; command-line Chromium exited during startup with `SIGTRAP`. The production E2E suite and design probe could not measure the revised export. Actual scrolling, native checkbox activation, canvas pixels and the revised first screen therefore remain unverified in this revision. The previous build's rendered results are retained as historical evidence only.
+- **No live API sample was taken in this revision.** Earlier live samples were IDLE; ACTIVE, celebrations and moving wheel distance were checked with fixtures in the previous round.
+- **WebKit and Safari remain unverified.** The earlier round lacked WebKit's system libraries; this revision did not retry WebKit.
+- **OBS itself was not run.** The earlier round checked transparency in headless Chromium, which is a similar engine but is not OBS.
 
 ## Project layout
 

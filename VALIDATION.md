@@ -1,8 +1,66 @@
 # Validation record
 
-The worker's own report for the final source, run on 2026-11-06. It is not an independent certification.
+The worker's own report, not an independent certification. The revision evidence below supersedes the earlier report where behavior changed.
 
-**Completion: Complete for the stated scope, with the limitations listed below.**
+## Revision, 2026-11-06
+
+**Completion: fixes implemented and static export rebuilt; current rendered verification is incomplete because browsers cannot launch on this machine.** No styling, fonts, assets, dependencies or routes were redesigned.
+
+### Reproduction and corrections
+
+The four reports were reproduced before any source edit with the real React components and live-state reducer in a scratch jsdom harness. These establish the state and event-handler failures; jsdom does not render layout, scroll the page, activate checkboxes from native Space defaults, or paint canvas pixels.
+
+| Finding | Before the fix | Source correction | Recheck |
+| --- | --- | --- | --- |
+| High: older cached responses keep ACTIVE telemetry live | After replies at +1.75, +3.5 and +5.25 seconds with an older `generatedAt`, retained state stayed `live`, age `0`, RPM `72000` | `src/lib/live.ts:56`: recalculate age using the retained reading and clock; expire live state without accepting old payload values or reviving offline state | At +5.25 s: `stale`, age `5.25`, original RPM and anchor retained. Unit tests cover exact threshold, clock skew, offline preservation, fresh recovery and frozen stage input with zero spin/lines/sparks |
+| Medium: ready instructions promise unavailable Run/Space behavior | The ready hint said “Tap Run or press Space” while the rendered button said “Start race” | `src/desk/GhostRace.tsx:206`: explicitly choose Start race first, then use Run/Space; keep the 30 m goal and rhythm guidance | Component check confirms control names and sequence. Actual page scrolling was not measured |
+| Medium: race intercepts Space on OBS controls | Both keydown and keyup events from the focused OBS checkbox had `defaultPrevented=true` | `src/desk/GhostRace.tsx:159`: ignore events from form controls, editable content, links and other buttons in both listeners; identify the race action by ref | Both events remain uncancelled. Checks cover descendants, inputs, textarea, select, links, buttons, editable content; document/race-action shortcuts and held-key suppression still work |
+| Medium: suspension extends the 60-second heat | First frame after a +65 s performance-clock jump left phase `running` and `59.9 s left` | `src/desk/GhostRace.tsx:117`, `src/lib/race.ts:53`: absolute heat deadline, full elapsed time, cap only motion integration, timeout takes precedence on expiry. `src/desk/GhostRace.tsx:106` rejects wheel readings received after the deadline | First resumed frame: `done`, `0.0 s left`, time result. A +20 s gap leaves 40 s and bounded ghost movement. A post-deadline wheel increment is excluded |
+
+All four required answers are in `.imd-responses.json`. Permanent regressions are in `tests/live.test.ts`, `tests/race.test.ts` and `tests/e2e/run.mjs`. The latter adds six browser cases: cached replies on both routes, ready keyboard guidance, OBS keyboard controls, suspended expiry/restart and partial frame gaps.
+
+### Commands and results
+
+To respect the repository's dependency-directory restriction, `package.json`, `package-lock.json`, source, tests and build configuration were copied to `test/scratch/worktree/`. All dependency/cache/browser downloads stayed in scratch. The final build used a fresh `npm ci` from the unchanged lockfile; its export was copied back to `dist/`, removing obsolete generated chunks. Scratch files are excluded from submission.
+
+| Actual command / check | Result |
+| --- | --- |
+| `npm ci --prefix test/scratch/worktree --cache test/scratch/npm-cache --no-audit --no-fund` | Passed |
+| `npm exec -- vitest run tests/revision.dom.test.ts` in the scratch copy, before edits | Four tests failed with the values recorded above |
+| Scratch Vitest suite after edits, including the expanded DOM harness | 61/61 passed: 47 deliverable unit tests and 14 component checks |
+| `npm run typecheck` in the final scratch copy | Passed |
+| `npm run build` in the final scratch copy | Passed; 37 modules transformed |
+| `npm test` after reinstalling the unchanged lockfile and removing the scratch DOM test | 47/47 passed |
+| `node --check tests/e2e/run.mjs` | Passed |
+| Static export integrity check | Both HTML entries have title/favicon/description/OG metadata; all 16 relative local asset references resolve. No export symlinks, sourcemaps or dependency archives |
+| Same-process HTTP smoke check using `serveDist()` and Node fetch | Could not complete: loopback request failed with `UND_ERR_SOCKET` / “other side closed”. Filesystem asset checks above passed; HTTP serving was not certified |
+| `node test/scratch/worktree/tests/e2e/run.mjs` from the repository root, against `dist/` | Exited 1 at browser launch, before any browser assertion |
+| `node .imd/reads/skills/design-critic/scripts/taste.mjs --out test/scratch/taste` with explicit scratch Playwright/browser paths | Exited 2: `render=false`, Chromium exited during startup. No layout/contrast/screenshots were measured |
+
+The browser tool itself also failed to initialize: Chromium reported “Socket path too long”. Command-line Chromium reported “Target page, context or browser has been closed” and `SIGTRAP`. A compatible scratch browser download also could not launch. These are runtime limitations, not requester-input requirements. The scratch probe output is `test/scratch/taste/taste.json`; there are no new screenshots to claim.
+
+Packaging check: `dist/` is 593,660 bytes; the complete source/export/documentation deliverable is under 1.1 MiB, and changed/new deliverable files are under 512 KiB, within the 8 MiB budget. Obsolete hashed chunks and writable launch caches were removed. No dependency directory or downloaded archive is in the deliverable. `package.json`, `package-lock.json` and `.gitignore` match their original hashes; no ignore-file edit was needed.
+
+### Better Interface review coverage
+
+The pinned workflow, six domains' core principles and documentation method were read. This is a scoped revision review of the affected shared live state and race controls, preserving the established theatre design.
+
+| Domain | Revision coverage | Limitations |
+| --- | --- | --- |
+| Accessibility | Checked source and DOM events: native controls and labels retained; both key listeners respect focused controls; document/race shortcuts retained; original focus and reduced-motion rules unchanged | Native keyboard defaults, visible focus, screen readers and physical devices not verified here |
+| Layout | Checked source: hint remains after the 56px primary action; no CSS, DOM order or breakpoints changed | 320/390/1440 rendering, first-screen action position, clipping and zoom not remeasured |
+| Writing | Checked: Start race → Run/Space guidance matches actual controls; goal and stumble instruction retained; stale age and timeout text reflect state | No new wording finding remains |
+| Typography | Checked source: existing type scale, tabular numbers, font files and wrapping rules unchanged | Revised hint wrapping not rendered |
+| Colors | Checked source: existing tokens and status words retained; stale values use the existing frozen-state styling | No new contrast ratios measured; earlier ratios below are historical |
+| UI | Checked state behavior: old responses expire, motion inputs freeze, timing survives large frame gaps, post-deadline data excluded; normal race unit tests still pass | Canvas pixel freeze, animations and OBS itself not rendered in this revision |
+
+`DESIGN.md` updates only the implemented keyboard, freshness and heat-timing behavior. Public hosting/repository publication was not changed or verified in this revision; no public URL is claimed. The local `dist/` export remains the deliverable for publication.
+
+## Earlier accepted build report (historical)
+
+The following records the previous round's checks. Its browser pass counts, screenshots, measured contrast and live API samples were not repeated successfully during this revision and do not certify the revised export.
+
+**Earlier completion statement: Complete for the stated scope, with the limitations listed below.**
 
 ## Scope and assumptions
 

@@ -152,12 +152,14 @@ No component library is exported. These are patterns to reuse from source.
 Keyboard and focus:
 
 - All controls are native elements, with a 3px `--color-focus` ring on `:focus-visible`.
-- During a heat, Space counts as a stride anywhere on the page, Enter works on the focused button, and a held key does not repeat.
+- Choose Start race before using the running shortcut. During a heat, Space counts as a stride from the document or the race action; input, textarea, select, editable content, links and other buttons keep their native keyboard behavior. Enter works on the focused race button, and a held Space key does not repeat strides. See `src/desk/GhostRace.tsx`.
 
 Motion:
 
 - Transitions name their properties (`scale, background-color`) and run for 120ms.
 - Under `prefers-reduced-motion: reduce` the stage draws still frames, the CSS animations do not run, and press scaling and smooth scrolling are off.
+- Older cached answers age the retained reading in `src/lib/live.ts`; once stale, `StageCanvas` enters its existing frozen mode and the status text explains the frozen numbers.
+- The race uses a 60-second deadline from `performance.now()`. Suspended frames count toward elapsed time, while ghost motion integration stays capped at 100ms per frame. The first frame after expiry resolves the heat, and readings received after the deadline do not move its wheel lane (`src/desk/GhostRace.tsx`, `src/lib/race.ts`).
 
 ## Do's and Don'ts
 

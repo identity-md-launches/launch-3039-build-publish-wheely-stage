@@ -52,9 +52,14 @@ function ageOf(observedAtMs: number | null, clock: LiveState["serverClock"], now
 }
 
 export function applyStatus(state: LiveState, status: ParsedStatus, nowMs: number): LiveState {
-  // A cache can answer out of order. An older answer must not roll the numbers back.
+  // A cache can answer out of order. Discard its values, but keep aging the retained reading.
   if (status.generatedAtMs !== null && state.serverClock && status.generatedAtMs < state.serverClock.serverMs) {
-    return state;
+    const ageSeconds = ageOf(state.reading?.observedAtMs ?? null, state.serverClock, nowMs);
+    return {
+      ...state,
+      ageSeconds,
+      link: state.link === "live" && (ageSeconds === null || ageSeconds > state.staleAfterSeconds) ? "stale" : state.link,
+    };
   }
   const serverClock = nextClock(state, status.generatedAtMs, nowMs);
   const m = status.measurement;
