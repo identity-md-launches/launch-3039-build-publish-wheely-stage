@@ -1,0 +1,538 @@
+/* Viewer second screen. Type scale: 14, 16, 20, 28, 40, 56 px. */
+
+html {
+  background: var(--color-page);
+  scroll-behavior: smooth;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+}
+
+body {
+  margin: 0;
+  background: var(--color-page);
+  color: var(--color-text);
+  font-family: var(--font-body);
+  font-size: 16px;
+  font-weight: var(--weight-body);
+  line-height: 1.5;
+}
+
+h1,
+h2,
+p,
+dl,
+dd,
+ol {
+  margin: 0;
+}
+
+a {
+  color: inherit;
+}
+
+:focus-visible {
+  outline: 3px solid var(--color-focus);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+.desk {
+  max-width: 1360px;
+  margin-inline: auto;
+  padding-inline: max(16px, env(safe-area-inset-left)) max(16px, env(safe-area-inset-right));
+}
+
+/* Header */
+.desk-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding-block: 12px;
+}
+
+.brand {
+  min-width: 0;
+}
+
+.brand-name {
+  color: var(--color-action);
+  font-family: var(--font-display);
+  font-size: 28px;
+  font-weight: 400;
+  letter-spacing: -0.01em;
+  line-height: 1.1;
+}
+
+.brand-line {
+  color: var(--color-text-muted);
+  font-size: 14px;
+  line-height: 1.3;
+  text-wrap: pretty;
+}
+
+.header-link {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  font-weight: var(--weight-strong);
+  text-underline-offset: 3px;
+}
+
+/* Show column */
+.desk-grid {
+  display: grid;
+  gap: 28px;
+}
+
+.desk-canvas {
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 9.5;
+}
+
+.desk-stage {
+  position: relative;
+}
+
+.stage-notice {
+  position: absolute;
+  inset-inline: 24px;
+  inset-block-end: 16px;
+}
+
+.notice {
+  padding: 8px 12px;
+  border-radius: 12px;
+  font-size: 14px;
+  line-height: 1.4;
+  text-wrap: pretty;
+}
+
+.notice-problem {
+  background: var(--color-surface-raised);
+  color: var(--color-text);
+}
+
+.notice-caption {
+  background: var(--color-action);
+  color: var(--color-on-action);
+  font-weight: var(--weight-strong);
+}
+
+.live {
+  margin-block-start: 8px;
+}
+
+.live-status {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+  min-height: 28px;
+  margin-block-start: 4px;
+}
+
+.badge,
+.chip {
+  padding: 2px 10px;
+  border-radius: 999px;
+  font-size: 14px;
+  font-weight: var(--weight-strong);
+  line-height: 1.5;
+  white-space: nowrap;
+}
+
+.badge-active {
+  background: var(--color-active);
+  color: var(--color-on-action);
+}
+
+.badge-idle,
+.chip-connecting {
+  background: var(--color-surface-raised);
+  color: var(--color-text);
+}
+
+.chip-stale {
+  background: var(--color-stale);
+  color: var(--color-on-action);
+}
+
+.chip-offline {
+  background: var(--color-offline);
+  color: var(--color-on-action);
+}
+
+/* A frozen reading is not a claim about now, so the badge drops its status colour. */
+.live[data-link="stale"] .badge,
+.live[data-link="offline"] .badge {
+  background: var(--color-surface-raised);
+  color: var(--color-text-muted);
+}
+
+.live-age {
+  color: var(--color-text-muted);
+  font-size: 14px;
+}
+
+.stats {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 4px 16px;
+}
+
+.stat {
+  min-width: 0;
+}
+
+.stat dt {
+  color: var(--color-text-muted);
+  font-size: 14px;
+  line-height: 1.3;
+}
+
+.stat dd {
+  width: fit-content;
+  max-width: 100%;
+  font-size: 28px;
+  font-weight: var(--weight-strong);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.15;
+  overflow-wrap: anywhere;
+}
+
+.stat-lead dd {
+  font-size: 40px;
+}
+
+.stat-rpm {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0 10px;
+}
+
+.live[data-core="active"] [data-field="rpm"] {
+  color: var(--color-active);
+}
+
+.live[data-link="stale"] .stat dd,
+.live[data-link="offline"] .stat dd,
+.live[data-link="stale"] [data-field="rpm"],
+.live[data-link="offline"] [data-field="rpm"] {
+  color: var(--color-text-muted);
+}
+
+/* Ghost race */
+.race {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+  border-radius: 20px;
+  background: var(--color-surface);
+}
+
+.race-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.race-head h2,
+.obs h2 {
+  font-family: var(--font-display);
+  font-size: 28px;
+  font-weight: 400;
+  letter-spacing: -0.01em;
+  line-height: 1.1;
+  text-wrap: balance;
+}
+
+.race-clock {
+  color: var(--color-text-muted);
+  font-size: 16px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.lanes {
+  --runner: 40px;
+  display: grid;
+  gap: 8px;
+}
+
+.lane-label {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0 12px;
+  font-size: 14px;
+  line-height: 1.3;
+}
+
+.lane-label strong {
+  font-variant-numeric: tabular-nums;
+  font-weight: var(--weight-strong);
+}
+
+.lane-track {
+  position: relative;
+  height: 34px;
+  border-block-end: 3px dashed var(--color-line);
+  /* The finish line */
+  background: linear-gradient(to left, var(--color-action) 4px, transparent 4px);
+}
+
+.lane-runner {
+  position: absolute;
+  inset-block-end: 0;
+  inset-inline-start: calc(var(--p) * (100% - var(--runner)));
+  width: var(--runner);
+}
+
+.mini {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.action {
+  width: 100%;
+  min-height: 56px;
+  padding: 12px 20px;
+  border: 0;
+  border-radius: 14px;
+  background: var(--color-action);
+  color: var(--color-on-action);
+  font-family: var(--font-display);
+  font-size: 20px;
+  font-weight: 400;
+  line-height: 1.2;
+  cursor: pointer;
+  touch-action: manipulation;
+  user-select: none;
+  -webkit-user-select: none;
+  transition-property: scale, background-color;
+  transition-duration: 120ms;
+  transition-timing-function: var(--ease-out);
+}
+
+@media (hover: hover) {
+  .action:hover {
+    background: var(--color-action-hover);
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .action:active,
+  .secondary:active {
+    scale: 0.96;
+  }
+}
+
+.action-stumble {
+  background: var(--color-stale);
+}
+
+.action[aria-disabled="true"] {
+  opacity: 0.6;
+}
+
+.race-hint {
+  min-height: 3em;
+  font-size: 14px;
+  line-height: 1.5;
+  text-wrap: pretty;
+}
+
+.race-best {
+  color: var(--color-text-muted);
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* OBS setup */
+.obs {
+  margin-block-start: 32px;
+  padding-block-start: 8px;
+  scroll-margin-block-start: 16px;
+}
+
+.obs-grid {
+  display: grid;
+  gap: 16px 32px;
+  margin-block-start: 12px;
+}
+
+.obs-steps {
+  display: grid;
+  align-content: start;
+  gap: 8px;
+  max-width: 62ch;
+  padding-inline-start: 24px;
+}
+
+.obs-toggles {
+  display: grid;
+  gap: 4px;
+  margin: 0 0 12px;
+  padding: 0;
+  border: 0;
+}
+
+.obs-toggles legend {
+  padding: 0;
+  margin-block-end: 4px;
+  font-weight: var(--weight-strong);
+}
+
+.toggle {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  cursor: pointer;
+}
+
+.toggle input {
+  width: 20px;
+  height: 20px;
+  margin: 0;
+  accent-color: var(--color-action);
+}
+
+.obs-url-label {
+  font-weight: var(--weight-strong);
+}
+
+.obs-url-value {
+  display: block;
+  margin-block-start: 4px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: var(--color-surface);
+  font-family: var(--font-body);
+  font-size: 16px;
+  overflow-wrap: anywhere;
+}
+
+.obs-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  margin-block-start: 12px;
+}
+
+.secondary {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 8px 16px;
+  border: 0;
+  border-radius: 12px;
+  background: var(--color-surface-raised);
+  color: var(--color-text);
+  font: inherit;
+  font-weight: var(--weight-strong);
+  text-decoration: none;
+  cursor: pointer;
+  transition-property: scale, background-color;
+  transition-duration: 120ms;
+  transition-timing-function: var(--ease-out);
+}
+
+@media (hover: hover) {
+  .secondary:hover {
+    background: var(--color-surface-hover);
+  }
+}
+
+.obs-copied {
+  font-size: 14px;
+}
+
+/* Footer */
+.desk-footer {
+  margin-block-start: 32px;
+  padding-block: 16px 24px;
+  color: var(--color-text-muted);
+  font-size: 14px;
+}
+
+.desk-footer a {
+  display: inline-block;
+  padding-block: 4px;
+  text-underline-offset: 3px;
+}
+
+/* From this width there is room for the race beside the stage. */
+@media (min-width: 60rem) {
+  .desk {
+    padding-inline: 32px;
+  }
+
+  .brand {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 2px 16px;
+  }
+
+  .desk-grid {
+    grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
+    gap: 32px;
+  }
+
+  .stat dd {
+    font-size: 40px;
+  }
+
+  .stat-lead dd {
+    font-size: 56px;
+  }
+
+  .race {
+    gap: 16px;
+    padding: 24px;
+  }
+
+  /* The lanes take the spare height, so the race lines up with the show column. */
+  .lanes {
+    --runner: 72px;
+    flex: 1;
+    grid-auto-rows: 1fr;
+    gap: 16px;
+  }
+
+  .lane {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .lane-track {
+    flex: 1;
+    min-height: 64px;
+  }
+
+  .obs-grid {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+}
+
+@media (min-width: 80rem) {
+  .stats {
+    grid-template-columns: repeat(4, auto);
+    justify-content: space-between;
+    align-items: end;
+    gap: 16px;
+  }
+}

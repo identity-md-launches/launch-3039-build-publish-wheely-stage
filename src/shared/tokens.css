@@ -1,0 +1,75 @@
+/* Shared tokens for both pages. Components use the semantic tier only. */
+
+@font-face {
+  font-family: "Bagel Fat One";
+  font-style: normal;
+  font-display: swap;
+  font-weight: 400;
+  src: url("@fontsource/bagel-fat-one/files/bagel-fat-one-latin-400-normal.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "Nunito Variable";
+  font-style: normal;
+  font-display: swap;
+  font-weight: 200 1000;
+  src: url("@fontsource-variable/nunito/files/nunito-latin-wght-normal.woff2") format("woff2-variations");
+}
+
+:root {
+  /* Primitives */
+  --oxblood-950: #1b0b10;
+  --oxblood-900: #2a1118;
+  --oxblood-800: #3c1822;
+  --oxblood-700: #5a2431;
+  --cream-100: #fbefdc;
+  --cream-300: #d9c4b0;
+  --butter-400: #f5c453;
+  --butter-300: #ffd97d;
+  --mint-300: #7ce8bd;
+  --amber-300: #ffb86b;
+  --rose-300: #ff9c9c;
+
+  /* Surfaces */
+  --color-page: var(--oxblood-950);
+  --color-surface: var(--oxblood-900);
+  --color-surface-raised: var(--oxblood-800);
+  --color-surface-hover: var(--oxblood-700);
+  --color-line: var(--oxblood-700);
+  --color-plate: rgb(27 11 16 / 0.88);
+
+  /* Text */
+  --color-text: var(--cream-100);
+  --color-text-muted: var(--cream-300);
+  --color-on-action: var(--oxblood-950);
+
+  /* Roles */
+  --color-action: var(--butter-400);
+  --color-action-hover: var(--butter-300);
+  --color-focus: var(--butter-300);
+  --color-active: var(--mint-300);
+  --color-stale: var(--amber-300);
+  --color-offline: var(--rose-300);
+
+  /* Type */
+  --font-display: "Bagel Fat One", "Arial Rounded MT Bold", ui-rounded, system-ui, sans-serif;
+  --font-body: "Nunito Variable", ui-rounded, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --weight-body: 400;
+  --weight-strong: 800;
+
+  /* Motion */
+  --ease-out: cubic-bezier(0.2, 0, 0, 1);
+}
+
+html {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}

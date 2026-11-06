@@ -1,0 +1,273 @@
+/* OBS Browser Source. The page itself never paints: only the plates and the stage do.
+   --u is one unit of a 1280x720 canvas, so the layout is identical at 720p and 1080p. */
+
+html,
+body,
+#root {
+  margin: 0;
+  width: 100%;
+  height: 100%;
+  background: transparent;
+}
+
+body {
+  overflow: hidden;
+  color: var(--color-text);
+  font-family: var(--font-body);
+  font-weight: var(--weight-body);
+}
+
+.overlay {
+  --u: min(calc(100vw / 1280), calc(100vh / 720));
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: flex-end;
+  gap: calc(var(--u) * 20);
+  padding: calc(var(--u) * 28);
+  pointer-events: none;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.ov-stage {
+  position: relative;
+  flex: none;
+  width: calc(var(--u) * 340);
+  height: calc(var(--u) * 340);
+}
+
+.ov-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.ov-stage-chip {
+  position: absolute;
+  inset-block-start: calc(var(--u) * 58);
+  inset-inline: 0;
+  display: flex;
+  justify-content: center;
+}
+
+.ov-side {
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--u) * 10);
+  width: calc(var(--u) * 540);
+  min-width: 0;
+}
+
+.plate {
+  background: var(--color-plate);
+  border-radius: calc(var(--u) * 16);
+  padding: calc(var(--u) * 12) calc(var(--u) * 16);
+}
+
+/* HUD */
+.hud-status {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: calc(var(--u) * 8);
+  min-height: calc(var(--u) * 28);
+}
+
+.badge,
+.chip {
+  display: inline-block;
+  padding: calc(var(--u) * 2) calc(var(--u) * 10);
+  border-radius: calc(var(--u) * 999);
+  font-size: calc(var(--u) * 15);
+  font-weight: var(--weight-strong);
+  line-height: 1.4;
+  white-space: nowrap;
+}
+
+.badge-active {
+  background: var(--color-active);
+  color: var(--color-on-action);
+}
+
+.badge-idle {
+  background: var(--color-surface-raised);
+  color: var(--color-text);
+}
+
+.chip-stale {
+  background: var(--color-stale);
+  color: var(--color-on-action);
+}
+
+.chip-offline {
+  background: var(--color-offline);
+  color: var(--color-on-action);
+}
+
+.chip-connecting {
+  background: var(--color-surface-raised);
+  color: var(--color-text);
+}
+
+/* A frozen reading is not a claim about now, so the badge drops its status colour. */
+.hud[data-link="stale"] .badge,
+.hud[data-link="offline"] .badge {
+  background: var(--color-surface-raised);
+  color: var(--color-text-muted);
+}
+
+.hud-age {
+  color: var(--color-text-muted);
+  font-size: calc(var(--u) * 15);
+}
+
+.hud-stats {
+  display: grid;
+  grid-template-columns: 1.1fr 1.1fr 1fr 1fr;
+  gap: calc(var(--u) * 12);
+  margin: calc(var(--u) * 8) 0 0;
+}
+
+.hud-stat {
+  min-width: 0;
+}
+
+.hud-stat dt {
+  color: var(--color-text-muted);
+  font-size: calc(var(--u) * 15);
+  line-height: 1.3;
+}
+
+.hud-stat dd {
+  margin: 0;
+  font-family: var(--font-body);
+  font-size: calc(var(--u) * 30);
+  font-weight: var(--weight-strong);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.15;
+  overflow-wrap: anywhere;
+}
+
+.hud[data-core="active"] .hud-stat-lead dd {
+  color: var(--color-active);
+}
+
+/* Frozen numbers stay readable but stop looking live */
+.hud[data-link="stale"] .hud-stat dd,
+.hud[data-link="offline"] .hud-stat dd {
+  color: var(--color-text-muted);
+}
+
+/* Ticker */
+.ticker {
+  display: flex;
+  align-items: center;
+  gap: calc(var(--u) * 12);
+  padding-block: calc(var(--u) * 8);
+}
+
+.ticker-brand {
+  flex: none;
+  color: var(--color-action);
+  font-family: var(--font-display);
+  font-size: calc(var(--u) * 20);
+  line-height: 1.2;
+}
+
+.ticker-line {
+  margin: 0;
+  min-width: 0;
+  font-size: calc(var(--u) * 18);
+  line-height: 1.3;
+  text-wrap: balance;
+}
+
+/* Caption */
+.caption-slot:empty {
+  display: none;
+}
+
+.caption {
+  margin: 0;
+  padding: calc(var(--u) * 10) calc(var(--u) * 16);
+  border-radius: calc(var(--u) * 16);
+  background: var(--color-action);
+  color: var(--color-on-action);
+  font-size: calc(var(--u) * 20);
+  font-weight: var(--weight-strong);
+  line-height: 1.25;
+  text-wrap: balance;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .caption {
+    animation: caption-in 260ms var(--ease-out) both;
+  }
+
+  .ticker-line {
+    animation: ticker-in 360ms var(--ease-out) both;
+  }
+
+  .hud-pop {
+    animation: round-pop 700ms var(--ease-out) both;
+  }
+}
+
+@keyframes caption-in {
+  from {
+    opacity: 0;
+    transform: translateY(calc(var(--u) * 10)) scale(0.96);
+  }
+}
+
+@keyframes ticker-in {
+  from {
+    opacity: 0;
+    transform: translateY(calc(var(--u) * 4));
+  }
+}
+
+@keyframes round-pop {
+  30% {
+    color: var(--color-action);
+    transform: scale(1.14);
+  }
+}
+
+/* A phone or portrait preview: stack the modules. OBS canvases never reach this. */
+@media (max-aspect-ratio: 1/1) {
+  body {
+    overflow: auto;
+  }
+
+  .overlay {
+    --u: calc(100vw / 620);
+    position: static;
+    flex-direction: column;
+    align-items: stretch;
+    min-height: 100%;
+    justify-content: flex-end;
+  }
+
+  .ov-stage {
+    align-self: center;
+  }
+
+  .ov-side {
+    width: auto;
+  }
+}
+
+/* Room for two lines at all times, so a longer line never pushes the HUD upward. */
+.ticker {
+  min-height: calc(var(--u) * 62);
+}
